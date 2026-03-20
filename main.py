@@ -1,8 +1,6 @@
-import os
+import requests
 
+proxy = requests.get("https://sockslist.us/Json").json()
 
-list_of_sites = ["https://sockslist.us/Json",""]
-
-
-proxy = os.open("https://sockslist.us/Json")
-print(proxy)
+for i in proxy:
+    print(i['ip'],i['port'])
