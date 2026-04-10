@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "D:\\gcc15\\gcc-15-source"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cppStandard": "c++26",
+            "browse": {},
+            "compilerPath": "D:\\\\gcc15\\\\gcc-15-source\\\\gcc.exe"
+        }
+    ],
+    "version": 4
+}

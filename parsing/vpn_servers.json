@@ -1,0 +1,522 @@
+[
+  {
+    "name": "VPNGate Japan #01 — public-vpn-120",
+    "kind": "vpngate",
+    "source": "vpngate://public-vpn-120.opengw.net|219.100.37.101",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #02 — public-vpn-65",
+    "kind": "vpngate",
+    "source": "vpngate://public-vpn-65.opengw.net|219.100.37.82",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #03 — public-vpn-164",
+    "kind": "vpngate",
+    "source": "vpngate://public-vpn-164.opengw.net|219.100.37.128",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #04 — public-vpn-40",
+    "kind": "vpngate",
+    "source": "vpngate://public-vpn-40.opengw.net|219.100.37.4",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #05 — public-vpn-49",
+    "kind": "vpngate",
+    "source": "vpngate://public-vpn-49.opengw.net|219.100.37.15",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #06 — public-vpn-163",
+    "kind": "vpngate",
+    "source": "vpngate://public-vpn-163.opengw.net|219.100.37.126",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #07 — public-vpn-52",
+    "kind": "vpngate",
+    "source": "vpngate://public-vpn-52.opengw.net|219.100.37.16",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate United States #08 — vpn828518618",
+    "kind": "vpngate",
+    "source": "vpngate://vpn828518618.opengw.net|50.158.169.70",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (United States)"
+  },
+  {
+    "name": "VPNGate Japan #09 — public-vpn-214",
+    "kind": "vpngate",
+    "source": "vpngate://public-vpn-214.opengw.net|219.100.37.204",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Taiwan #10 — vpn638367753",
+    "kind": "vpngate",
+    "source": "vpngate://vpn638367753.opengw.net|114.35.64.20",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Taiwan)"
+  },
+  {
+    "name": "VPNGate Japan #11 — vpn936940680",
+    "kind": "vpngate",
+    "source": "vpngate://vpn936940680.opengw.net|106.156.91.45",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #12 — vpn395628244",
+    "kind": "vpngate",
+    "source": "vpngate://vpn395628244.opengw.net|121.105.52.238",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #13 — nextexp",
+    "kind": "vpngate",
+    "source": "vpngate://nextexp.opengw.net|126.235.87.202",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #14 — 2i6",
+    "kind": "vpngate",
+    "source": "vpngate://2i6.opengw.net|1.66.33.164",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #15 — vpn787856579",
+    "kind": "vpngate",
+    "source": "vpngate://vpn787856579.opengw.net|59.23.123.76",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #16 — vpn201414962",
+    "kind": "vpngate",
+    "source": "vpngate://vpn201414962.opengw.net|27.114.114.237",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #17 — n26",
+    "kind": "vpngate",
+    "source": "vpngate://n26.opengw.net|103.152.178.62",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #18 — vpn115965378",
+    "kind": "vpngate",
+    "source": "vpngate://vpn115965378.opengw.net|220.57.84.30",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #19 — vpn214710245",
+    "kind": "vpngate",
+    "source": "vpngate://vpn214710245.opengw.net|133.175.174.202",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #20 — vpn496296722",
+    "kind": "vpngate",
+    "source": "vpngate://vpn496296722.opengw.net|110.12.231.177",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #21 — vpn456161766",
+    "kind": "vpngate",
+    "source": "vpngate://vpn456161766.opengw.net|183.104.75.19",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #22 — vpn305489668",
+    "kind": "vpngate",
+    "source": "vpngate://vpn305489668.opengw.net|211.205.56.227",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #23 — vpn162979730",
+    "kind": "vpngate",
+    "source": "vpngate://vpn162979730.opengw.net|60.122.102.169",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #24 — vpn107871577",
+    "kind": "vpngate",
+    "source": "vpngate://vpn107871577.opengw.net|1.248.71.184",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #25 — vpn666071836",
+    "kind": "vpngate",
+    "source": "vpngate://vpn666071836.opengw.net|221.105.214.236",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #26 — vpn591489135",
+    "kind": "vpngate",
+    "source": "vpngate://vpn591489135.opengw.net|122.133.154.34",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #27 — vpn972315247",
+    "kind": "vpngate",
+    "source": "vpngate://vpn972315247.opengw.net|118.108.56.233",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #28 — vpn977978908",
+    "kind": "vpngate",
+    "source": "vpngate://vpn977978908.opengw.net|112.171.253.186",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #29 — vpn486662942",
+    "kind": "vpngate",
+    "source": "vpngate://vpn486662942.opengw.net|153.232.234.251",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #30 — vpn555001308",
+    "kind": "vpngate",
+    "source": "vpngate://vpn555001308.opengw.net|119.83.61.69",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #31 — vpn186187198",
+    "kind": "vpngate",
+    "source": "vpngate://vpn186187198.opengw.net|131.147.59.94",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #32 — vpn949832711",
+    "kind": "vpngate",
+    "source": "vpngate://vpn949832711.opengw.net|106.179.46.146",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #33 — vpn172194090",
+    "kind": "vpngate",
+    "source": "vpngate://vpn172194090.opengw.net|126.88.128.168",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #34 — vpn947592845",
+    "kind": "vpngate",
+    "source": "vpngate://vpn947592845.opengw.net|220.87.107.114",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #35 — vpn493418473",
+    "kind": "vpngate",
+    "source": "vpngate://vpn493418473.opengw.net|211.38.219.151",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #36 — vpn149232523",
+    "kind": "vpngate",
+    "source": "vpngate://vpn149232523.opengw.net|119.240.180.142",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #37 — vpn108030929",
+    "kind": "vpngate",
+    "source": "vpngate://vpn108030929.opengw.net|118.156.222.242",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #38 — vpn792898187",
+    "kind": "vpngate",
+    "source": "vpngate://vpn792898187.opengw.net|118.156.22.175",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Viet Nam #39 — vpn259104646",
+    "kind": "vpngate",
+    "source": "vpngate://vpn259104646.opengw.net|27.72.25.249",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Viet Nam)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #40 — vpn229700248",
+    "kind": "vpngate",
+    "source": "vpngate://vpn229700248.opengw.net|58.143.124.72",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #41 — vpn934703126",
+    "kind": "vpngate",
+    "source": "vpngate://vpn934703126.opengw.net|1.215.88.229",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #42 — vpn370389678",
+    "kind": "vpngate",
+    "source": "vpngate://vpn370389678.opengw.net|133.207.161.129",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #43 — vpn306037816",
+    "kind": "vpngate",
+    "source": "vpngate://vpn306037816.opengw.net|59.142.40.235",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #44 — vpn967521612",
+    "kind": "vpngate",
+    "source": "vpngate://vpn967521612.opengw.net|126.63.251.96",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #45 — vpn898303143",
+    "kind": "vpngate",
+    "source": "vpngate://vpn898303143.opengw.net|126.4.176.185",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #46 — vpn634304369",
+    "kind": "vpngate",
+    "source": "vpngate://vpn634304369.opengw.net|125.240.157.165",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #47 — vpn944840881",
+    "kind": "vpngate",
+    "source": "vpngate://vpn944840881.opengw.net|58.238.117.230",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Thailand #48 — idcrmn2",
+    "kind": "vpngate",
+    "source": "vpngate://idcrmn2.opengw.net|171.7.51.181",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Thailand)"
+  },
+  {
+    "name": "VPNGate Japan #49 — vpn274345019",
+    "kind": "vpngate",
+    "source": "vpngate://vpn274345019.opengw.net|110.132.120.239",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #50 — vpn892589278",
+    "kind": "vpngate",
+    "source": "vpngate://vpn892589278.opengw.net|152.117.199.196",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #51 — vpn401356693",
+    "kind": "vpngate",
+    "source": "vpngate://vpn401356693.opengw.net|153.125.66.217",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Thailand #52 — vpn657227908",
+    "kind": "vpngate",
+    "source": "vpngate://vpn657227908.opengw.net|49.49.251.196",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Thailand)"
+  },
+  {
+    "name": "VPNGate Japan #53 — vpn379155927",
+    "kind": "vpngate",
+    "source": "vpngate://vpn379155927.opengw.net|124.143.78.89",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #54 — vpn955787428",
+    "kind": "vpngate",
+    "source": "vpngate://vpn955787428.opengw.net|58.81.148.88",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #55 — vpn456375241",
+    "kind": "vpngate",
+    "source": "vpngate://vpn456375241.opengw.net|202.157.114.204",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #56 — vpn211969447",
+    "kind": "vpngate",
+    "source": "vpngate://vpn211969447.opengw.net|118.41.236.148",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #57 — vpn145935552",
+    "kind": "vpngate",
+    "source": "vpngate://vpn145935552.opengw.net|121.83.154.182",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #58 — vpn325202957",
+    "kind": "vpngate",
+    "source": "vpngate://vpn325202957.opengw.net|14.32.250.14",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #59 — vpn153007889",
+    "kind": "vpngate",
+    "source": "vpngate://vpn153007889.opengw.net|210.156.187.145",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #60 — vpn592353452",
+    "kind": "vpngate",
+    "source": "vpngate://vpn592353452.opengw.net|60.149.75.205",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #61 — vpn147871381",
+    "kind": "vpngate",
+    "source": "vpngate://vpn147871381.opengw.net|118.17.37.10",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Korea Republic of #62 — vpn435188153",
+    "kind": "vpngate",
+    "source": "vpngate://vpn435188153.opengw.net|211.107.136.245",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Korea Republic of)"
+  },
+  {
+    "name": "VPNGate Japan #63 — vpn847322694",
+    "kind": "vpngate",
+    "source": "vpngate://vpn847322694.opengw.net|153.137.166.176",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #64 — vpn298974059",
+    "kind": "vpngate",
+    "source": "vpngate://vpn298974059.opengw.net|126.224.169.113",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  },
+  {
+    "name": "VPNGate Japan #65 — vpn413988511",
+    "kind": "vpngate",
+    "source": "vpngate://vpn413988511.opengw.net|133.32.218.205",
+    "local_path": "",
+    "enabled": true,
+    "note": "Auto-updated from VPNGate (Japan)"
+  }
+]
