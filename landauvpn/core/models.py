@@ -146,7 +146,15 @@ def load_free_profiles_from_json(path: Path) -> List[VPNProfile]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             payload = json.load(f)
-        rows = payload.get("profiles", payload if isinstance(payload, list) else [])
+        
+        # Поддержка обоих форматов: список и dict с ключом 'profiles'
+        if isinstance(payload, list):
+            rows = payload
+        elif isinstance(payload, dict):
+            rows = payload.get("profiles", [])
+        else:
+            rows = []
+        
         return [VPNProfile(**x) for x in rows if isinstance(x, dict)]
     except Exception:
         return []

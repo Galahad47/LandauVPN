@@ -365,13 +365,13 @@ class LandauVPNGUI(ctk.CTk):
     def _can_materialize_profile(self, profile: VPNProfile) -> Tuple[str, bool]:
         try:
             if profile.kind == "vpngate":
-                from core.models import parse_vpngate_ref
+                from ..core.models import parse_vpngate_ref
                 host, ip = parse_vpngate_ref(profile.source)
                 servers = self.vpn._fetch_live_vpngate_servers()
                 return profile.name, any(
                     (host and s["hostname"] == host) or (ip and s["ip"] == ip) for s in servers
                 )
-            from core.models import is_url
+            from ..core.models import is_url
             if is_url(profile.source):
                 return profile.name, True
             return profile.name, os.path.exists(profile.source)
