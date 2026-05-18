@@ -1,239 +1,207 @@
-# LandauVPN
+# LandauVPN — Модульное приложение для управления VPN и проксирования
 
-LandauVPN — настольное приложение на Python для управления VPN-профилями через графический интерфейс `customtkinter`.
+## 📋 Описание
 
-Программа предназначена для администратора. Она позволяет входить по локальным учётным данным, загружать и подключать VPN-профили, работать с бесплатным пулом серверов VPNGate, а также запускать VPN-клиент для всей системы.
+LandauVPN — это переработанная версия скрипта для управления VPN подключениями с добавлением функционала постоянного проксирования в стиле **zapret-discord-youtube**. Приложение позволяет:
 
-## Возможности
+- Управлять VPN профилями (OpenVPN, WireGuard, VPNGate)
+- Получать бесплатные серверы с VPNGate
+- **Постоянно проксировать трафик** для обхода блокировок Telegram, Discord, YouTube
+- Работать как аналог zapret-discord-youtube для постоянного обхода DPI
 
-- вход по логину и паролю администратора
-- хранение учётных данных в отдельном локальном файле `~/.LandauVPN/auth.json`
-- поддержка профилей:
-  - OpenVPN (`.ovpn`)
-  - WireGuard (`.conf`)
-  - VPNGate (`vpngate://hostname|ip`)
-- загрузка профиля из локального файла или по URL
-- отдельный файл со списком бесплатных серверов: `vpn_servers.json`
-- обновление бесплатного списка из VPNGate
-- поиск по спискам профилей и бесплатных серверов
-- двойной клик по серверу для подключения
-- запуск VPN в фоне без зависания интерфейса
-- журнал действий внизу окна
-- открытие папки профилей и файла авторизации из интерфейса
-- изменение логина и пароля администратора в настройках
+## 🏗️ Структура проекта
 
-## Требования
+```
+landauvpn/
+├── __init__.py              # Инициализация пакета
+├── main.py                  # Точка входа приложения
+├── vpn_servers.json         # Кэш бесплатных VPN серверов
+│
+├── core/                    # Ядро приложения
+│   ├── __init__.py
+│   ├── models.py            # Модель данных VPNProfile и функции парсинга
+│   └── vpn_controller.py    # Контроллер управления VPN подключениями
+│
+├── proxy/                   # Модуль проксирования (zapret-style)
+│   ├── __init__.py
+│   └── controller.py        # ProxyController для постоянного проксирования
+│
+├── gui/                     # Графический интерфейс
+│   ├── __init__.py
+│   └── main_window.py       # Основное окно приложения
+│
+└── utils/                   # Утилиты
+    ├── __init__.py
+    └── config.py            # Конфигурация, пути, авторизация
+```
 
-- Python 3.10 или новее
-- `customtkinter`
-- `requests`
-- установленный VPN-клиент:
-  - OpenVPN для `.ovpn`
-  - WireGuard для `.conf`
+## 🚀 Установка
 
-## Установка
+### Требования
 
-### Через git
+- Python 3.8+
+- customtkinter
+- requests
+- OpenVPN или WireGuard (для VPN подключений)
+- zapret или goodbyedpi (для проксирования)
+
+### Установка зависимостей
 
 ```bash
-    git clone https://github.com/yourusername/LandauVPN.git
-    cd LandauVPN
+pip install customtkinter requests
 ```
 
-### Через загрузку архива
+### Установка инструментов для проксирования
+
+#### Linux (zapret)
+```bash
+git clone https://github.com/bol-van/zapret.git
+cd zapret
+./install/install.sh
+```
+
+#### Windows (goodbyedpi)
+```bash
+# Скачайте релиз с https://github.com/ValdikSS/GoodbyeDPI/releases
+# Распакуйте в ~/.LandauVPN/goodbyedpi/
+```
+
+## 💡 Использование
+
+### Запуск приложения
 
 ```bash
-    curl -L -o LandauVPN.zip https://github.com/yourusername/LandauVPN/archive/refs/heads/main.zip
+cd /workspace
+python -m landauvpn.main
 ```
 
-На Windows можно скачать архив через браузер с GitHub и распаковать его вручную.
-
-## Установка зависимостей
+Или напрямую:
 
 ```bash
-    pip install customtkinter requests
+python landauvpn/main.py
 ```
 
-## Запуск
+### Вкладки интерфейса
 
-```bash
-    python landau_admin_vpn_manager_ux.py
+#### 🌐 VPN профили
+- Список всех профилей (локальные + бесплатные)
+- Подключение/отключение VPN
+- Управление профилями
+
+#### 🆓 Бесплатные VPN
+- Получение серверов с VPNGate
+- Фильтрация по странам, хостам
+- Быстрое подключение к лучшему серверу
+
+#### 🔒 Прокси (DPI) — НОВое!
+- **Режимы работы:**
+  - `auto` — автоматический выбор
+  - `discord` — проксирование только Discord
+  - `youtube` — проксирование только YouTube
+  - `telegram` — проксирование только Telegram
+  - `all` — проксирование всего трафика
+
+- **Работает постоянно** — независимо от VPN
+- **Аналог zapret-discord-youtube** — использует те же принципы обхода DPI
+
+#### ➕ Добавить профиль
+- Добавление своих .ovpn/.conf файлов
+- Поддержка URL и vpngate:// ссылок
+
+#### ⚙️ Настройки
+- Смена логина/пароля администратора
+- Обновление пула бесплатных VPN
+
+## 🔧 API для разработчиков
+
+### Использование модулей
+
+```python
+from landauvpn.core import VPNProfile, VPNController, fetch_vpngate_profiles
+from landauvpn.proxy import ProxyController, ProxyConfig
+from landauvpn.utils import load_admin_auth, CONFIG_DIR
+
+# Получение бесплатных профилей
+profiles = fetch_vpngate_profiles(limit=50)
+
+# Создание VPN контроллера
+def log_func(msg): print(msg)
+vpn = VPNController(log_func)
+
+# Запуск прокси для Telegram
+proxy = ProxyController(log_func)
+config = ProxyConfig(enabled=True, mode="telegram")
+proxy.start(config)
 ```
 
-Если проект собран в `.exe`, рядом с исполняемым файлом должен лежать `vpn_servers.json`.
+### ProxyConfig параметры
 
-## Структура проекта
-
-```text
-LandauVPN/
-├── landau_admin_vpn_manager_ux.py
-├── vpn_servers.json
-├── README.md
-└── .gitignore
+```python
+@dataclass
+class ProxyConfig:
+    enabled: bool = True          # Включено ли прокси
+    mode: str = "auto"            # Режим: auto, discord, youtube, telegram, all
+    custom_args: str = ""         # Дополнительные аргументы
+    log_file: str = ""            # Файл логов
 ```
 
-После первого запуска программа создаёт локальные файлы в домашней папке пользователя:
+## 📁 Файлы конфигурации
 
-```text
-~/.LandauVPN/
-├── auth.json
-├── vpn_profiles.json
-└── profiles/
-```
+Все файлы хранятся в `~/.LandauVPN/`:
 
-## Авторизация администратора
+- `auth.json` — учётные данные администратора
+- `vpn_profiles.json` — пользовательские профили
+- `profiles/` — загруженные конфиги VPN
+- `discord_hosts.txt` — список хостов Discord
+- `youtube_hosts.txt` — список хостов YouTube
+- `telegram_hosts.txt` — список хостов Telegram
+
+## 🔐 Авторизация
 
 По умолчанию:
+- Логин: `admin`
+- Пароль: (пустой)
 
-- логин: `admin`
-- пароль: `Konstruk.tor.16.`
+**Рекомендуется установить пароль при первом запуске!**
 
-Логин и пароль можно изменить во вкладке **Настройки**. После изменения данные сохраняются в `~/.LandauVPN/auth.json`.
+## ⚠️ Важные замечания
 
-## Как работает программа
+1. **Для работы VPN** требуется установленный OpenVPN или WireGuard
+2. **Для работы прокси** требуется zapret (Linux) или goodbyedpi (Windows)
+3. **На Linux/macOS** для запуска VPN может потребоваться sudo без пароля
+4. **Прокси работает постоянно** — не забывайте останавливать его при необходимости
 
-Приложение не создаёт собственный VPN-туннель. Оно запускает системный VPN-клиент:
+## 📝 Отличия от оригинального скрипта
 
-- для OpenVPN используется команда:
+| Оригинал | LandauVPN |
+|----------|-----------|
+| Монолитный скрипт | Модульная структура |
+| Только VPN | VPN + Постоянное проксирование |
+| Нет разделения | Чёткое разделение на core/proxy/gui/utils |
+| Ручное управление | Автоматическое создание hostlists |
 
-```bash
-openvpn --config <файл>
-```
+## 🛠️ Разработка
 
-- для WireGuard на Linux/macOS используется:
+### Добавление нового режима прокси
 
-```bash
-sudo wg-quick up <файл>
-```
+1. Откройте `landauvpn/proxy/controller.py`
+2. Добавьте режим в `_build_zapret_command()` и `_build_goodbyedpi_command()`
+3. Обновите список хостов в `create_default_hostlists()`
 
-На Windows используется системная команда для установленного клиента.
-
-Это означает, что VPN применяется ко всей системе, а не только к самому приложению.
-
-## Бесплатные серверы VPN
-
-Файл `vpn_servers.json` содержит список бесплатных профилей VPNGate.
-
-Программа:
-
-1. загружает этот файл при запуске;
-2. показывает серверы во вкладке **Бесплатные VPN**;
-3. может обновить список из VPNGate;
-4. сохраняет обновлённый список обратно в JSON.
-
-Если файла `vpn_servers.json` нет рядом с программой, приложение пытается найти его:
-
-- рядом со скриптом или `.exe`
-- в текущей рабочей папке
-- в `~/.LandauVPN/`
-
-## Формат `vpn_servers.json`
-
-Пример записи:
-
-```json
-{
-  "name": "VPNGate Japan #1 — public-vpn-257.opengw.net",
-  "kind": "vpngate",
-  "source": "vpngate://public-vpn-257.opengw.net|219.100.37.208",
-  "local_path": "",
-  "enabled": true,
-  "note": "score 123456, ping 18 ms, speed 24567"
-}
-```
-
-## Добавление собственного профиля
-
-Во вкладке **Добавить профиль** можно указать:
-
-- путь к локальному файлу `.ovpn` или `.conf`
-- URL на конфиг
-- VPNGate-формат `vpngate://hostname|ip`
-
-Пример:
-
-```text
-vpngate://public-vpn-257.opengw.net|219.100.37.208
-```
-
-## Интерфейс
-
-Во вкладках доступны:
-
-- поиск по спискам
-- обновление бесплатных серверов
-- подключение выбранного профиля
-- отключение VPN
-- удаление и включение/выключение профилей
-- проверка части профилей в фоне
-- просмотр логов
-
-## Команды для скачивания
-
-### Скачать файл `vpn_servers.json`
+### Сборка в .exe
 
 ```bash
-curl -L -o vpn_servers.json https://raw.githubusercontent.com/yourusername/LandauVPN/main/vpn_servers.json
+pip install pyinstaller
+pyinstaller --onefile --windowed landauvpn/main.py --name LandauVPN
 ```
 
-### Скачать основной скрипт
+## 📄 Лицензия
 
-```bash
-curl -L -o landau_admin_vpn_manager_ux.py https://raw.githubusercontent.com/yourusername/LandauVPN/main/landau_admin_vpn_manager_ux.py
-```
+MIT License
 
-### Скачать весь проект как ZIP
+## 🙏 Благодарности
 
-```bash
-curl -L -o LandauVPN.zip https://github.com/yourusername/LandauVPN/archive/refs/heads/main.zip
-```
-
-## Troubleshooting
-
-### VPN не запускается
-
-Проверь:
-
-- установлен ли OpenVPN или WireGuard
-- существует ли выбранный файл конфига
-- хватает ли прав для запуска VPN
-- корректен ли сам конфиг
-
-### Список бесплатных серверов пуст
-
-Проверь:
-
-- наличие файла `vpn_servers.json`
-- доступ в интернет
-- доступность VPNGate
-- обновление списка через кнопку **Обновить из VPNGate**
-
-### Не удаётся войти
-
-Проверь файл:
-
-```text
-~/.LandauVPN/auth.json
-```
-
-Можно открыть его прямо из программы во вкладке **Настройки**.
-
-## Безопасность
-
-- пароль администратора хранится локально в виде SHA-256 хеша
-- файлы `auth.json`, `vpn_profiles.json` и папка `profiles/` не должны попадать в репозиторий
-- бесплатные VPN-сервера могут меняться и быть нестабильными
-
-## Рекомендуемый `.gitignore`
-
-```gitignore
-auth.json
-vpn_profiles.json
-profiles/
-__pycache__/
-*.pyc
-```
-
-## Лицензия
-
-Добавьте лицензию, которую хотите использовать в проекте, например MIT.
+- [VPNGate](https://www.vpngate.net/) — бесплатные VPN серверы
+- [zapret](https://github.com/bol-van/zapret) — обход DPI
+- [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI) — обход DPI для Windows
+- [customtkinter](https://github.com/TomSchimansky/CustomTkinter) — современный GUI
