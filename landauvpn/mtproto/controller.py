@@ -4,14 +4,17 @@ LandauVPN - MTProto Proxy Controller
 
 MTProto - это проприетарный протокол шифрования, разработанный Telegram.
 Этот модуль позволяет автоматически подключаться к MTProto прокси для обхода блокировок.
+
+Поддерживает асинхронную проверку прокси с автоматическим исключением нерабочих.
 """
 
 import socket
 import struct
 import threading
 import time
-from typing import Optional, List, Dict, Tuple
-from dataclasses import dataclass
+import asyncio
+from typing import Optional, List, Dict, Tuple, Set
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -21,9 +24,22 @@ class MTProtoProxy:
     host: str
     port: int
     secret: str  # DD или обычный секрет
+    is_alive: bool = True  # Статус доступности
+    latency: float = float('inf')  # Задержка в мс
+    fail_count: int = 0  # Количество неудачных проверок
+    last_checked: float = 0.0  # Время последней проверки
     
     def __str__(self):
-        return f"{self.host}:{self.port}/{self.secret}"
+        status = "✓" if self.is_alive else "✗"
+        return f"{status} {self.host}:{self.port}/{self.secret[:8]}... (latency={self.latency:.0f}ms)"
+    
+    def __hash__(self):
+        return hash((self.host, self.port))
+    
+    def __eq__(self, other):
+        if not isinstance(other, MTProtoProxy):
+            return False
+        return self.host == other.host and self.port == other.port
 
 
 @dataclass 
@@ -31,13 +47,12 @@ class MTProtoConfig:
     """Конфигурация MTProto прокси"""
     enabled: bool = True
     auto_detect: bool = True  # Автоматический выбор лучшего прокси
-    proxy_list: List[MTProtoProxy] = None
+    proxy_list: List[MTProtoProxy] = field(default_factory=list)
     timeout: int = 5  # Таймаут подключения в секундах
     retry_count: int = 3  # Количество попыток переподключения
-    
-    def __post_init__(self):
-        if self.proxy_list is None:
-            self.proxy_list = []
+    check_interval: int = 60  # Интервал проверки прокси в секундах
+    max_failures: int = 3  # Максимальное количество неудач перед исключением
+    min_working_proxies: int = 5  # Минимальное количество рабочих прокси
 
 
 class MTProtoController:
@@ -216,9 +231,13 @@ class MTProtoController:
         self.config = MTProtoConfig()
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._async_check_thread: Optional[threading.Thread] = None
         self._current_proxy: Optional[MTProtoProxy] = None
         self._proxy_socket: Optional[socket.socket] = None
         self._connected = False
+        self._checked_proxies: Set[MTProtoProxy] = set()  # Множество проверенных прокси
+        self._working_proxies: List[MTProtoProxy] = []  # Список рабочих прокси
+        self._lock = threading.Lock()  # Блокировка для потокобезопасности
         
     def _log(self, msg: str):
         """Логирование сообщения"""
@@ -239,19 +258,138 @@ class MTProtoController:
         self._log(f"Удалён прокси: {host}:{port}")
     
     def test_proxy(self, proxy: MTProtoProxy) -> bool:
-        """Тестирование доступности прокси"""
+        """Синхронное тестирование доступности прокси (для обратной совместимости)"""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.config.timeout)
+            start_time = time.time()
             result = sock.connect_ex((proxy.host, proxy.port))
+            latency = (time.time() - start_time) * 1000  # мс
             sock.close()
+            
+            if result == 0:
+                proxy.is_alive = True
+                proxy.latency = latency
+                proxy.fail_count = 0
+            else:
+                proxy.fail_count += 1
+                if proxy.fail_count >= self.config.max_failures:
+                    proxy.is_alive = False
+                    
+            proxy.last_checked = time.time()
             return result == 0
         except Exception as e:
             self._log(f"Ошибка теста прокси {proxy}: {e}")
+            proxy.fail_count += 1
+            if proxy.fail_count >= self.config.max_failures:
+                proxy.is_alive = False
+            proxy.last_checked = time.time()
             return False
     
+    async def test_proxy_async(self, proxy: MTProtoProxy) -> bool:
+        """Асинхронное тестирование доступности прокси с измерением задержки"""
+        try:
+            loop = asyncio.get_event_loop()
+            start_time = time.time()
+            
+            # Создаем сокет и подключаемся асинхронно
+            def connect():
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(self.config.timeout)
+                result = sock.connect_ex((proxy.host, proxy.port))
+                sock.close()
+                return result
+            
+            result = await loop.run_in_executor(None, connect)
+            latency = (time.time() - start_time) * 1000  # мс
+            
+            with self._lock:
+                if result == 0:
+                    proxy.is_alive = True
+                    proxy.latency = latency
+                    proxy.fail_count = 0
+                    self._checked_proxies.add(proxy)
+                else:
+                    proxy.fail_count += 1
+                    if proxy.fail_count >= self.config.max_failures:
+                        proxy.is_alive = False
+                        # Удаляем из множества проверенных, если стал нерабочим
+                        self._checked_proxies.discard(proxy)
+                    proxy.last_checked = time.time()
+            
+            return result == 0
+        except Exception as e:
+            self._log(f"Ошибка асинхронного теста прокси {proxy}: {e}")
+            with self._lock:
+                proxy.fail_count += 1
+                if proxy.fail_count >= self.config.max_failures:
+                    proxy.is_alive = False
+                    self._checked_proxies.discard(proxy)
+                proxy.last_checked = time.time()
+            return False
+    
+    async def check_all_proxies_async(self) -> Dict[MTProtoProxy, bool]:
+        """
+        Асинхронная проверка всех прокси параллельно.
+        Возвращает словарь {proxy: is_working}.
+        Нерабочие прокси автоматически исключаются из дальнейшего использования.
+        """
+        all_proxies = self.config.proxy_list + self.PUBLIC_PROXIES
+        
+        # Фильтруем только те, которые ещё не были помечены как нерабочие
+        # или имеют меньше максимального количества неудач
+        proxies_to_check = [
+            p for p in all_proxies 
+            if p.is_alive or p.fail_count < self.config.max_failures
+        ]
+        
+        self._log(f"Начало асинхронной проверки {len(proxies_to_check)} прокси...")
+        
+        # Создаём задачи для всех прокси
+        tasks = [self.test_proxy_async(proxy) for proxy in proxies_to_check]
+        
+        # Выполняем все проверки параллельно
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Формируем результат
+        proxy_results = {}
+        working_count = 0
+        
+        for proxy, result in zip(proxies_to_check, results):
+            if isinstance(result, Exception):
+                self._log(f"Исключение при проверке {proxy}: {result}")
+                proxy_results[proxy] = False
+            else:
+                proxy_results[proxy] = result
+                if result:
+                    working_count += 1
+        
+        # Обновляем список рабочих прокси
+        with self._lock:
+            self._working_proxies = [p for p, ok in proxy_results.items() if ok]
+        
+        self._log(f"Проверка завершена: {working_count}/{len(proxies_to_check)} рабочих прокси")
+        
+        return proxy_results
+    
+    def get_working_proxies(self) -> List[MTProtoProxy]:
+        """Получение списка рабочих прокси, отсортированных по задержке"""
+        with self._lock:
+            working = [p for p in (self.config.proxy_list + self.PUBLIC_PROXIES) if p.is_alive]
+            # Сортируем по задержке (быстрее = лучше)
+            working.sort(key=lambda p: p.latency)
+            return working
+    
     def find_best_proxy(self) -> Optional[MTProtoProxy]:
-        """Поиск лучшего доступного прокси"""
+        """Поиск лучшего доступного прокси (синхронный метод для обратной совместимости)"""
+        # Сначала пробуем использовать уже проверенные рабочие прокси
+        working = self.get_working_proxies()
+        if working:
+            best = working[0]  # Первый = самый быстрый
+            self._log(f"Выбран лучший прокси: {best}")
+            return best
+        
+        # Если нет проверенных, делаем синхронную проверку
         proxies = self.config.proxy_list + self.PUBLIC_PROXIES
         
         for proxy in proxies:
@@ -307,6 +445,45 @@ class MTProtoController:
         self._current_proxy = None
         self._log("Отключено от MTProto прокси")
     
+    def start_async_checker(self):
+        """Запуск асинхронного проверщика прокси в отдельном потоке"""
+        if self._async_check_thread and self._async_check_thread.is_alive():
+            self._log("Асинхронный проверщик уже запущен")
+            return
+        
+        self._log("Запуск асинхронного проверщика прокси...")
+        
+        def run_async_check():
+            """Обёртка для запуска asyncio в отдельном потоке"""
+            try:
+                asyncio.run(self._async_check_loop())
+            except Exception as e:
+                self._log(f"Ошибка в асинхронном проверщике: {e}")
+        
+        self._async_check_thread = threading.Thread(target=run_async_check, daemon=True)
+        self._async_check_thread.start()
+    
+    async def _async_check_loop(self):
+        """Асинхронный цикл периодической проверки прокси"""
+        check_count = 0
+        
+        while self._running:
+            check_count += 1
+            self._log(f"Периодическая проверка прокси (цикл #{check_count})...")
+            
+            # Выполняем асинхронную проверку всех прокси
+            results = await self.check_all_proxies_async()
+            
+            # Логируем результаты
+            working = sum(1 for ok in results.values() if ok)
+            failed = len(results) - working
+            
+            if failed > 0:
+                self._log(f"Исключено нерабочих прокси: {failed}")
+            
+            # Ждём следующий интервал проверки
+            await asyncio.sleep(self.config.check_interval)
+    
     def start(self, config: Optional[MTProtoConfig] = None):
         """Запуск MTProto проксирования"""
         if self._running:
@@ -322,13 +499,34 @@ class MTProtoController:
         self._running = True
         self._log("Запуск MTProto прокси")
         
-        # Попытка подключения
+        # Сначала выполняем начальную асинхронную проверку прокси
+        self._log("Выполнение начальной проверки прокси...")
+        try:
+            # Запускаем асинхронную проверку в отдельном потоке
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            def run_initial_check():
+                return loop.run_until_complete(self.check_all_proxies_async())
+            
+            thread = threading.Thread(target=run_initial_check, daemon=True)
+            thread.start()
+            thread.join(timeout=self.config.timeout * 2)  # Ждём завершения проверки
+            
+            loop.close()
+        except Exception as e:
+            self._log(f"Ошибка при начальной проверке: {e}")
+        
+        # Попытка подключения к лучшему прокси
         if self.connect_to_proxy():
             self._log("MTProto прокси активен")
         
         # Запускаем фоновый поток для мониторинга и авто-переподключения
         self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self._thread.start()
+        
+        # Запускаем асинхронный проверщик для периодического обновления статуса
+        self.start_async_checker()
     
     def stop(self):
         """Остановка MTProto проксирования"""
@@ -349,10 +547,21 @@ class MTProtoController:
             if not self._connected:
                 if reconnect_attempts < self.config.retry_count:
                     self._log(f"Попытка переподключения ({reconnect_attempts + 1}/{self.config.retry_count})...")
-                    if self.connect_to_proxy():
-                        reconnect_attempts = 0
+                    
+                    # При переподключении используем только рабочие прокси
+                    working = self.get_working_proxies()
+                    if working:
+                        # Пробуем подключиться к лучшему рабочему прокси
+                        if self.connect_to_proxy(working[0]):
+                            reconnect_attempts = 0
+                        else:
+                            reconnect_attempts += 1
                     else:
-                        reconnect_attempts += 1
+                        # Если нет рабочих прокси, пробуем найти новый
+                        if self.connect_to_proxy():
+                            reconnect_attempts = 0
+                        else:
+                            reconnect_attempts += 1
                 else:
                     self._log("Превышено количество попыток переподключения")
                     time.sleep(10)  # Ждём перед новыми попытками
@@ -371,6 +580,31 @@ class MTProtoController:
     def get_current_proxy(self) -> Optional[MTProtoProxy]:
         """Получение текущего прокси"""
         return self._current_proxy
+    
+    def get_stats(self) -> Dict:
+        """Получение статистики по прокси"""
+        all_proxies = self.config.proxy_list + self.PUBLIC_PROXIES
+        working = [p for p in all_proxies if p.is_alive]
+        failed = [p for p in all_proxies if not p.is_alive and p.fail_count >= self.config.max_failures]
+        
+        return {
+            "total": len(all_proxies),
+            "working": len(working),
+            "failed": len(failed),
+            "checked": len(self._checked_proxies),
+            "avg_latency": sum(p.latency for p in working) / len(working) if working else 0,
+            "best_proxy": str(working[0]) if working else None,
+        }
+    
+    def reset_failed_proxies(self):
+        """Сброс счётчиков неудач для всех прокси (полезно при изменении сети)"""
+        with self._lock:
+            for proxy in (self.config.proxy_list + self.PUBLIC_PROXIES):
+                proxy.fail_count = 0
+                proxy.is_alive = True
+            self._checked_proxies.clear()
+            self._working_proxies.clear()
+        self._log("Сброшены счётчики неудач для всех прокси")
 
 
 # Глобальный экземпляр
@@ -383,3 +617,37 @@ def get_mtproto_controller(log_func=None) -> MTProtoController:
     if _mtproto_instance is None:
         _mtproto_instance = MTProtoController(log_func)
     return _mtproto_instance
+
+
+async def check_proxies_async(log_func=None, timeout: int = 5) -> Dict[MTProtoProxy, bool]:
+    """
+    Асинхронная проверка всех публичных MTProto прокси.
+    
+    Args:
+        log_func: Функция для логирования
+        timeout: Таймаут подключения в секундах
+    
+    Returns:
+        Словарь {proxy: is_working}, где is_working = True если прокси доступен
+    """
+    controller = MTProtoController(log_func)
+    controller.config.timeout = timeout
+    
+    # Выполняем проверку
+    results = await controller.check_all_proxies_async()
+    
+    return results
+
+
+def run_async_check(timeout: int = 5) -> Dict[MTProtoProxy, bool]:
+    """
+    Синхронная обёртка для асинхронной проверки прокси.
+    Удобно для использования в синхронном коде.
+    
+    Args:
+        timeout: Таймаут подключения в секундах
+    
+    Returns:
+        Словарь {proxy: is_working}
+    """
+    return asyncio.run(check_proxies_async(timeout=timeout))
