@@ -16,7 +16,9 @@ import customtkinter as ctk
 
 from ..core.models import VPNProfile
 from ..core.vpn_controller import VPNController
-from ..proxy.controller import ProxyController, ProxyConfig, create_default_hostlists
+from ..proxy.controller import ProxyController, ProxyConfig, create_default_hostlists as create_proxy_hostlists
+from ..dpi.bypasser import DPIBypasser, DPIConfig, get_dpi_bypasser, create_default_hostlists as create_dpi_hostlists
+from ..mtproto.controller import MTProtoController, MTProtoConfig, get_mtproto_controller
 from ..utils.config import (
     load_admin_auth, save_admin_auth, hash_password, 
     load_profiles, save_profiles, load_free_profiles_from_json, 
@@ -44,6 +46,8 @@ class LandauVPNGUI(ctk.CTk):
         # Инициализация контроллеров
         self.vpn = VPNController(self._queue_log)
         self.proxy = ProxyController(self._queue_log)
+        self.dpi = get_dpi_bypasser(self._queue_log)
+        self.mtproto = get_mtproto_controller(self._queue_log)
         
         # Данные профилей
         self.custom_profiles: List[VPNProfile] = load_profiles(VPN_PROFILES_FILE)
@@ -176,8 +180,9 @@ class LandauVPNGUI(ctk.CTk):
         self.reload_free_from_json()
         self._refresh_profiles_list()
         
-        # Создание списков хостов по умолчанию
-        create_default_hostlists()
+        # Создание списков хостов по умолчанию для всех модулей
+        create_proxy_hostlists()
+        create_dpi_hostlists()
 
     # ========== Вкладка VPN профили ==========
     def _create_profiles_tab(self):
@@ -500,56 +505,124 @@ class LandauVPNGUI(ctk.CTk):
         frame = ctk.CTkFrame(self.tab_proxy)
         frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        ctk.CTkLabel(frame, text="Постоянное проксирование (zapret-discord-youtube style)", 
+        ctk.CTkLabel(frame, text="🔒 Проксирование и обход блокировок", 
                      font=ctk.CTkFont(size=18, weight="bold")).pack(pady=10)
         
         info_text = ctk.CTkLabel(
             frame, 
-            text="Используется для обхода блокировок Telegram, Discord, YouTube.\n"
-                 "Работает независимо от VPN, постоянно проксирует трафик.",
+            text="Три метода обхода блокировок:\n"
+                 "1. Внешний прокси (zapret/goodbyedpi) - для Discord, YouTube\n"
+                 "2. Встроенный DPI обходчик - аналог zapret внутри приложения\n"
+                 "3. MTProto прокси - автоматическое проксирование Telegram",
             justify="left"
         )
         info_text.pack(pady=10)
 
-        settings_frame = ctk.CTkFrame(frame)
-        settings_frame.pack(fill="x", padx=10, pady=10)
+        # === Раздел 1: Внешний прокси ===
+        ext_frame = ctk.CTkLabelFrame(frame, text="📡 Внешний прокси (zapret/goodbyedpi)", padx=10, pady=10)
+        ext_frame.pack(fill="x", padx=10, pady=10)
 
-        ctk.CTkLabel(settings_frame, text="Режим работы:", font=ctk.CTkFont(size=14)).pack(anchor="w", padx=10, pady=5)
+        ctk.CTkLabel(ext_frame, text="Режим работы:", font=ctk.CTkFont(size=14)).pack(anchor="w", padx=10, pady=5)
         
         self.proxy_mode_var = ctk.StringVar(value="auto")
         mode_options = ["auto", "discord", "youtube", "telegram", "all"]
         self.proxy_mode_menu = ctk.CTkOptionMenu(
-            settings_frame, 
+            ext_frame, 
             variable=self.proxy_mode_var, 
             values=mode_options,
             command=self._on_proxy_mode_change
         )
         self.proxy_mode_menu.pack(fill="x", padx=10, pady=5)
 
-        ctk.CTkLabel(settings_frame, text="Дополнительные аргументы:", font=ctk.CTkFont(size=14)).pack(anchor="w", padx=10, pady=(15, 5))
-        self.proxy_args_entry = ctk.CTkEntry(settings_frame, placeholder_text="--dpi-desync=fake --dpi-desync-autottl=2")
+        ctk.CTkLabel(ext_frame, text="Дополнительные аргументы:", font=ctk.CTkFont(size=14)).pack(anchor="w", padx=10, pady=(15, 5))
+        self.proxy_args_entry = ctk.CTkEntry(ext_frame, placeholder_text="--dpi-desync=fake --dpi-desync-autottl=2")
         self.proxy_args_entry.pack(fill="x", padx=10, pady=5)
 
-        btn_frame = ctk.CTkFrame(frame)
-        btn_frame.pack(fill="x", padx=10, pady=15)
+        ext_btn_frame = ctk.CTkFrame(ext_frame)
+        ext_btn_frame.pack(fill="x", padx=10, pady=15)
         
         self.proxy_start_btn = ctk.CTkButton(
-            btn_frame, 
-            text="▶ Запустить прокси", 
+            ext_btn_frame, 
+            text="▶ Запустить внешний прокси", 
             command=self.start_proxy,
             fg_color="green"
         )
         self.proxy_start_btn.pack(side="left", padx=10)
         
         self.proxy_stop_btn = ctk.CTkButton(
-            btn_frame, 
-            text="⏹ Остановить прокси", 
+            ext_btn_frame, 
+            text="⏹ Остановить", 
             command=self.stop_proxy,
             fg_color="red"
         )
         self.proxy_stop_btn.pack(side="left", padx=10)
         
-        ctk.CTkButton(btn_frame, text="📁 Открыть папку с хостами", command=self.open_hosts_folder).pack(side="left", padx=10)
+        ctk.CTkButton(ext_btn_frame, text="📁 Хосты", command=self.open_hosts_folder).pack(side="left", padx=10)
+
+        # === Раздел 2: Встроенный DPI обходчик ===
+        dpi_frame = ctk.CTkLabelFrame(frame, text="🛡️ Встроенный DPI обходчик (аналог zapret)", padx=10, pady=10)
+        dpi_frame.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkLabel(dpi_frame, text="Режим DPI обходчика:", font=ctk.CTkFont(size=14)).pack(anchor="w", padx=10, pady=5)
+        
+        self.dpi_mode_var = ctk.StringVar(value="all")
+        dpi_mode_options = ["auto", "youtube", "telegram", "all"]
+        self.dpi_mode_menu = ctk.CTkOptionMenu(
+            dpi_frame, 
+            variable=self.dpi_mode_var, 
+            values=dpi_mode_options
+        )
+        self.dpi_mode_menu.pack(fill="x", padx=10, pady=5)
+
+        dpi_btn_frame = ctk.CTkFrame(dpi_frame)
+        dpi_btn_frame.pack(fill="x", padx=10, pady=15)
+        
+        self.dpi_start_btn = ctk.CTkButton(
+            dpi_btn_frame, 
+            text="▶ Запустить DPI обходчик", 
+            command=self.start_dpi,
+            fg_color="green"
+        )
+        self.dpi_start_btn.pack(side="left", padx=10)
+        
+        self.dpi_stop_btn = ctk.CTkButton(
+            dpi_btn_frame, 
+            text="⏹ Остановить", 
+            command=self.stop_dpi,
+            fg_color="red"
+        )
+        self.dpi_stop_btn.pack(side="left", padx=10)
+
+        # === Раздел 3: MTProto прокси для Telegram ===
+        mt_frame = ctk.CTkLabelFrame(frame, text="✈️ MTProto прокси (Telegram)", padx=10, pady=10)
+        mt_frame.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkLabel(mt_frame, text="Автоматическое подключение к MTProto прокси для Telegram", 
+                     font=ctk.CTkFont(size=13)).pack(anchor="w", padx=10, pady=5)
+        
+        self.mtproto_auto_var = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(mt_frame, text="Авто-выбор лучшего прокси", variable=self.mtproto_auto_var).pack(anchor="w", padx=10, pady=5)
+
+        mt_btn_frame = ctk.CTkFrame(mt_frame)
+        mt_btn_frame.pack(fill="x", padx=10, pady=15)
+        
+        self.mtproto_start_btn = ctk.CTkButton(
+            mt_btn_frame, 
+            text="▶ Запустить MTProto", 
+            command=self.start_mtproto,
+            fg_color="#0088cc"  # Telegram color
+        )
+        self.mtproto_start_btn.pack(side="left", padx=10)
+        
+        self.mtproto_stop_btn = ctk.CTkButton(
+            mt_btn_frame, 
+            text="⏹ Остановить", 
+            command=self.stop_mtproto,
+            fg_color="red"
+        )
+        self.mtproto_stop_btn.pack(side="left", padx=10)
+        
+        ctk.CTkButton(mt_btn_frame, text="🔄 Тест прокси", command=self.test_mtproto).pack(side="left", padx=10)
 
     def _on_proxy_mode_change(self, value):
         self.log(f"[Proxy] Режим изменён на: {value}")
@@ -597,6 +670,78 @@ class LandauVPNGUI(ctk.CTk):
                 subprocess.Popen(["xdg-open", str(hosts_dir)])
         except Exception as e:
             messagebox.showerror("Ошибка", str(e))
+
+    # ========== Методы для DPI обходчика ==========
+    def start_dpi(self):
+        config = DPIConfig(
+            enabled=True,
+            mode=self.dpi_mode_var.get()
+        )
+        
+        def worker():
+            try:
+                self._queue_proxy_status("● DPI обходчик запускается...", "orange")
+                self.dpi.start(config)
+                self._queue_proxy_status(f"● DPI обходчик активен ({config.mode})", "lime")
+            except Exception as e:
+                self._queue_proxy_status("● Ошибка DPI", "red")
+                self._queue_log(f"[DPI] Ошибка: {e}")
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def stop_dpi(self):
+        def worker():
+            try:
+                self.dpi.stop()
+                self._queue_proxy_status("● DPI обходчик выключен", "gray")
+            except Exception as e:
+                self._queue_log(f"[DPI] Остановка: {e}")
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    # ========== Методы для MTProto прокси ==========
+    def start_mtproto(self):
+        config = MTProtoConfig(
+            enabled=True,
+            auto_detect=self.mtproto_auto_var.get()
+        )
+        
+        def worker():
+            try:
+                self._queue_proxy_status("● MTProto запускается...", "orange")
+                self.mtproto.start(config)
+                self._queue_proxy_status("● MTProto активен", "lime")
+            except Exception as e:
+                self._queue_proxy_status("● Ошибка MTProto", "red")
+                self._queue_log(f"[MTProto] Ошибка: {e}")
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def stop_mtproto(self):
+        def worker():
+            try:
+                self.mtproto.stop()
+                self._queue_proxy_status("● MTProto выключен", "gray")
+            except Exception as e:
+                self._queue_log(f"[MTProto] Остановка: {e}")
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def test_mtproto(self):
+        def worker():
+            try:
+                self._queue_log("[MTProto] Тестирование прокси...")
+                proxy = self.mtproto.find_best_proxy()
+                if proxy:
+                    self._queue_log(f"[MTProto] Найден рабочий прокси: {proxy}")
+                    self._queue_proxy_status(f"● Доступен прокси: {proxy.host}:{proxy.port}", "lime")
+                else:
+                    self._queue_log("[MTProto] Не найдено рабочих прокси")
+                    self._queue_proxy_status("● Нет доступных прокси", "red")
+            except Exception as e:
+                self._queue_log(f"[MTProto] Ошибка теста: {e}")
+
+        threading.Thread(target=worker, daemon=True).start()
 
     # ========== Вкладка Добавить профиль ==========
     def _create_add_tab(self):
