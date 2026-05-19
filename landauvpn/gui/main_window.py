@@ -187,9 +187,6 @@ class LandauVPNGUI(ctk.CTk):
         # Создание списков хостов по умолчанию для всех модулей
         create_proxy_hostlists()
         create_dpi_hostlists()
-        
-        # Запуск фонового автообновления
-        self._start_auto_update_cycle()
 
     # ========== Вкладка VPN профили ==========
     def _create_profiles_tab(self):
