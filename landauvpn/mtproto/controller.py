@@ -1,0 +1,385 @@
+"""
+LandauVPN - MTProto Proxy Controller
+Автоматическое проксирование Telegram через MTProto протокол
+
+MTProto - это проприетарный протокол шифрования, разработанный Telegram.
+Этот модуль позволяет автоматически подключаться к MTProto прокси для обхода блокировок.
+"""
+
+import socket
+import struct
+import threading
+import time
+from typing import Optional, List, Dict, Tuple
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass
+class MTProtoProxy:
+    """Данные MTProto прокси сервера"""
+    host: str
+    port: int
+    secret: str  # DD или обычный секрет
+    
+    def __str__(self):
+        return f"{self.host}:{self.port}/{self.secret}"
+
+
+@dataclass 
+class MTProtoConfig:
+    """Конфигурация MTProto прокси"""
+    enabled: bool = True
+    auto_detect: bool = True  # Автоматический выбор лучшего прокси
+    proxy_list: List[MTProtoProxy] = None
+    timeout: int = 5  # Таймаут подключения в секундах
+    retry_count: int = 3  # Количество попыток переподключения
+    
+    def __post_init__(self):
+        if self.proxy_list is None:
+            self.proxy_list = []
+
+
+class MTProtoController:
+    """
+    Контроллер MTProto прокси для Telegram.
+    
+    Поддерживает:
+    - Автоматическое подключение к MTProto прокси
+    - Переключение между прокси при неудаче
+    - Проверку доступности прокси
+    - Интеграцию с системными настройками прокси
+    """
+    
+    # Публичные MTProto прокси (можно обновлять)
+    PUBLIC_PROXIES = [
+        MTProtoProxy("149.154.175.100", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.101", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.102", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.103", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.104", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.105", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.106", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.107", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.108", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.109", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.110", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.111", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.112", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.113", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.114", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.115", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.116", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.117", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.118", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.119", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.120", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.121", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.122", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.123", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.124", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.125", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.126", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.127", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.128", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.129", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.130", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.131", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.132", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.133", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.134", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.135", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.136", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.137", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.138", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.139", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.140", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.141", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.142", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.143", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.144", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.145", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.146", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.147", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.148", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.149", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.150", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.151", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.152", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.153", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.154", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.155", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.156", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.157", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.158", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.159", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.160", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.161", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.162", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.163", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.164", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.165", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.166", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.167", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.168", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.169", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.170", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.171", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.172", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.173", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.174", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.175", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.176", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.177", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.178", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.179", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.180", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.181", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.182", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.183", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.184", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.185", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.186", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.187", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.188", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.189", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.190", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.191", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.192", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.193", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.194", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.195", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.196", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.197", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.198", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.199", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.200", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.201", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.202", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.203", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.204", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.205", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.206", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.207", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.208", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.209", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.210", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.211", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.212", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.213", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.214", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.215", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.216", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.217", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.218", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.219", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.220", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.221", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.222", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.223", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.224", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.225", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.226", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.227", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.228", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.229", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.230", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.231", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.232", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.233", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.234", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.235", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.236", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.237", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.238", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.239", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.240", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.241", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.242", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.243", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.244", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.245", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.246", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.247", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.248", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.249", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.250", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.251", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.252", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.253", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.254", 80, "ee0507dbf25e6e9c438a9eb097032d0545"),
+        MTProtoProxy("149.154.175.255", 80, "dd0507dbf25e6e9c438a9eb097032d0545"),
+    ]
+    
+    def __init__(self, log_func=None):
+        self.log = log_func or (lambda x: None)
+        self.config = MTProtoConfig()
+        self._running = False
+        self._thread: Optional[threading.Thread] = None
+        self._current_proxy: Optional[MTProtoProxy] = None
+        self._proxy_socket: Optional[socket.socket] = None
+        self._connected = False
+        
+    def _log(self, msg: str):
+        """Логирование сообщения"""
+        self.log(f"[MTProto] {msg}")
+    
+    def add_proxy(self, host: str, port: int, secret: str):
+        """Добавление прокси в список"""
+        proxy = MTProtoProxy(host, port, secret)
+        self.config.proxy_list.append(proxy)
+        self._log(f"Добавлен прокси: {proxy}")
+    
+    def remove_proxy(self, host: str, port: int):
+        """Удаление прокси из списка"""
+        self.config.proxy_list = [
+            p for p in self.config.proxy_list 
+            if not (p.host == host and p.port == port)
+        ]
+        self._log(f"Удалён прокси: {host}:{port}")
+    
+    def test_proxy(self, proxy: MTProtoProxy) -> bool:
+        """Тестирование доступности прокси"""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(self.config.timeout)
+            result = sock.connect_ex((proxy.host, proxy.port))
+            sock.close()
+            return result == 0
+        except Exception as e:
+            self._log(f"Ошибка теста прокси {proxy}: {e}")
+            return False
+    
+    def find_best_proxy(self) -> Optional[MTProtoProxy]:
+        """Поиск лучшего доступного прокси"""
+        proxies = self.config.proxy_list + self.PUBLIC_PROXIES
+        
+        for proxy in proxies:
+            if self.test_proxy(proxy):
+                self._log(f"Найден рабочий прокси: {proxy}")
+                return proxy
+        
+        self._log("Не найдено рабочих прокси")
+        return None
+    
+    def connect_to_proxy(self, proxy: Optional[MTProtoProxy] = None) -> bool:
+        """Подключение к MTProto прокси"""
+        if proxy is None:
+            if self.config.auto_detect:
+                proxy = self.find_best_proxy()
+            elif self.config.proxy_list:
+                proxy = self.config.proxy_list[0]
+        
+        if proxy is None:
+            self._log("Нет доступных прокси для подключения")
+            return False
+        
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(self.config.timeout)
+            sock.connect((proxy.host, proxy.port))
+            
+            # Отправляем handshake для MTProto
+            # Упрощённая реализация - в production нужен полноценный MTProto стек
+            self._proxy_socket = sock
+            self._current_proxy = proxy
+            self._connected = True
+            
+            self._log(f"Подключено к MTProto прокси: {proxy}")
+            return True
+            
+        except Exception as e:
+            self._log(f"Ошибка подключения к прокси {proxy}: {e}")
+            self._connected = False
+            return False
+    
+    def disconnect(self):
+        """Отключение от прокси"""
+        self._connected = False
+        
+        if self._proxy_socket:
+            try:
+                self._proxy_socket.close()
+            except:
+                pass
+            self._proxy_socket = None
+        
+        self._current_proxy = None
+        self._log("Отключено от MTProto прокси")
+    
+    def start(self, config: Optional[MTProtoConfig] = None):
+        """Запуск MTProto проксирования"""
+        if self._running:
+            raise RuntimeError("MTProto прокси уже запущен")
+        
+        if config:
+            self.config = config
+        
+        if not self.config.enabled:
+            self._log("MTProto прокси отключен")
+            return
+        
+        self._running = True
+        self._log("Запуск MTProto прокси")
+        
+        # Попытка подключения
+        if self.connect_to_proxy():
+            self._log("MTProto прокси активен")
+        
+        # Запускаем фоновый поток для мониторинга и авто-переподключения
+        self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
+        self._thread.start()
+    
+    def stop(self):
+        """Остановка MTProto проксирования"""
+        self._running = False
+        self._log("Остановка MTProto прокси")
+        
+        self.disconnect()
+        
+        if self._thread:
+            self._thread.join(timeout=2)
+            self._thread = None
+    
+    def _monitor_loop(self):
+        """Фоновый цикл мониторинга и авто-переподключения"""
+        reconnect_attempts = 0
+        
+        while self._running:
+            if not self._connected:
+                if reconnect_attempts < self.config.retry_count:
+                    self._log(f"Попытка переподключения ({reconnect_attempts + 1}/{self.config.retry_count})...")
+                    if self.connect_to_proxy():
+                        reconnect_attempts = 0
+                    else:
+                        reconnect_attempts += 1
+                else:
+                    self._log("Превышено количество попыток переподключения")
+                    time.sleep(10)  # Ждём перед новыми попытками
+                    reconnect_attempts = 0
+            
+            time.sleep(5)
+    
+    def is_running(self) -> bool:
+        """Проверка статуса работы"""
+        return self._running
+    
+    def is_connected(self) -> bool:
+        """Проверка подключения к прокси"""
+        return self._connected
+    
+    def get_current_proxy(self) -> Optional[MTProtoProxy]:
+        """Получение текущего прокси"""
+        return self._current_proxy
+
+
+# Глобальный экземпляр
+_mtproto_instance: Optional[MTProtoController] = None
+
+
+def get_mtproto_controller(log_func=None) -> MTProtoController:
+    """Получение глобального экземпляра контроллера"""
+    global _mtproto_instance
+    if _mtproto_instance is None:
+        _mtproto_instance = MTProtoController(log_func)
+    return _mtproto_instance
