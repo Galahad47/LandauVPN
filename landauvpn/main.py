@@ -6,8 +6,9 @@ LandauVPN - Main Entry Point
 import sys
 from pathlib import Path
 
-# Добавляем корень проекта в путь
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Добавляем КОРЕНЬ проекта в путь (родительскую директорию относительно этого файла)
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
 
 from landauvpn.utils.config import ensure_config_dirs
 from landauvpn.gui.main_window import LandauVPNGUI

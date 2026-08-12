@@ -56,6 +56,10 @@ class LandauVPNGUI(ctk.CTk):
         self._pending_logs: List[str] = []
         self._connected_profile: Optional[VPNProfile] = None
         
+        # Флаги автообновления
+        self._auto_update_enabled = True
+        self._update_interval_ms = 300000  # 5 минут
+        
         # Создание интерфейса
         self.show_login()
         self.after(80, self._process_ui_queue)
@@ -474,6 +478,40 @@ class LandauVPNGUI(ctk.CTk):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _start_auto_update_cycle(self):
+        """Запуск цикла автообновления списков прокси и бесплатных VPN"""
+        def auto_update_worker():
+            if not self._auto_update_enabled:
+                return
+            
+            try:
+                # Обновление бесплатных VPN из веба
+                self._queue_log("🔄 Автообновление: загрузка VPNGate...")
+                free_profiles = fetch_vpngate_profiles(50)
+                save_free_profiles_json(free_profiles, FREE_VPN_JSON_FILE)
+                with self._profile_lock:
+                    self.free_profiles = free_profiles
+                self._queue_log(f"✅ Бесплатные VPN обновлены: {len(free_profiles)} серверов")
+                
+                # Обновление MTProto прокси
+                self._queue_log("🔄 Автообновление: проверка MTProto прокси...")
+                mtproto_ctrl = get_mtproto_controller()
+                working_proxies = mtproto_ctrl.get_working_proxies(limit=20)
+                self._queue_log(f"✅ MTProto прокси: {len(working_proxies)} рабочих")
+                
+                # Перезапуск цикла
+                if hasattr(self, '_update_interval_ms'):
+                    self.after(self._update_interval_ms, auto_update_worker)
+                    
+            except Exception as e:
+                self._queue_log(f"⚠️ Ошибка автообновления: {e}")
+                # Повтор через интервал даже при ошибке
+                if hasattr(self, '_update_interval_ms'):
+                    self.after(self._update_interval_ms, auto_update_worker)
+        
+        # Первый запуск через 10 секунд после старта
+        self.after(10000, auto_update_worker)
+
     def _reset_free_search(self):
         self.free_search_var.set("")
         self._refresh_free_list()
@@ -875,9 +913,17 @@ class LandauVPNGUI(ctk.CTk):
 
     # ========== Завершение ==========
     def on_closing(self):
+        # Отключение автообновления
+        self._auto_update_enabled = False
+        
         try:
             self.vpn.stop()
             self.proxy.stop()
+            # Остановка фоновых проверок MTProto и DPI
+            if hasattr(self.mtproto, 'stop'):
+                self.mtproto.stop()
+            if hasattr(self.dpi, 'stop'):
+                self.dpi.stop()
         except Exception:
             pass
         self.destroy()
