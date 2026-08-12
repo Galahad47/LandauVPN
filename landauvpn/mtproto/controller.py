@@ -6,6 +6,7 @@ MTProto - это проприетарный протокол шифровани�
 Этот модуль позволяет автоматически подключаться к MTProto прокси для обхода блокировок.
 
 Поддерживает асинхронную проверку прокси с автоматическим исключением нерабочих.
+Автоматический поиск новых прокси через публичные источники.
 """
 
 import socket
@@ -13,9 +14,13 @@ import struct
 import threading
 import time
 import asyncio
+import re
+import json
 from typing import Optional, List, Dict, Tuple, Set
 from dataclasses import dataclass, field
 from pathlib import Path
+import urllib.request
+import urllib.error
 
 
 @dataclass
@@ -238,10 +243,205 @@ class MTProtoController:
         self._checked_proxies: Set[MTProtoProxy] = set()  # Множество проверенных прокси
         self._working_proxies: List[MTProtoProxy] = []  # Список рабочих прокси
         self._lock = threading.Lock()  # Блокировка для потокобезопасности
+        self._auto_search_enabled = True  # Флаг автоматического поиска прокси
+        self._search_interval = 300  # Интервал поиска в секундах (5 минут)
         
     def _log(self, msg: str):
         """Логирование сообщения"""
         self.log(f"[MTProto] {msg}")
+    
+    def _parse_proxy_from_url(self, url: str) -> Optional[MTProtoProxy]:
+        """
+        Парсинг MTProto прокси из URL формата.
+        Поддерживаемые форматы:
+        - https://t.me/proxy?server=host&port=80&secret=secret
+        - tg://proxy?server=host&port=80&secret=secret
+        - proxy://host:port/secret
+        """
+        try:
+            # Формат tg://proxy или https://t.me/proxy
+            if 't.me/proxy' in url or 'tg://proxy' in url:
+                # Извлекаем параметры из URL
+                server_match = re.search(r'server=([^&]+)', url)
+                port_match = re.search(r'port=(\d+)', url)
+                secret_match = re.search(r'secret=([^&]+)', url)
+                
+                if server_match and port_match and secret_match:
+                    host = server_match.group(1)
+                    port = int(port_match.group(1))
+                    secret = secret_match.group(1)
+                    return MTProtoProxy(host, port, secret)
+            
+            # Формат proxy://host:port/secret
+            elif url.startswith('proxy://'):
+                parts = url[8:].split('/')
+                if len(parts) >= 2:
+                    host_port = parts[0].split(':')
+                    if len(host_port) == 2:
+                        host = host_port[0]
+                        port = int(host_port[1])
+                        secret = parts[1] if len(parts) > 1 else ''
+                        return MTProtoProxy(host, port, secret)
+            
+            # Простой формат host:port/secret
+            elif '/' in url:
+                host_port, secret = url.split('/', 1)
+                host, port = host_port.split(':', 1)
+                return MTProtoProxy(host.strip(), int(port.strip()), secret.strip())
+                
+        except Exception as e:
+            self._log(f"Ошибка парсинга прокси из '{url}': {e}")
+        
+        return None
+    
+    def search_proxies_from_telegram_channels(self) -> List[MTProtoProxy]:
+        """
+        Автоматический поиск MTProto прокси из публичных Telegram каналов.
+        Использует публичные API и веб-страницы для получения списка прокси.
+        """
+        found_proxies = []
+        
+        # Источники для поиска прокси
+        proxy_sources = [
+            # Публичные каналы с прокси (используем их веб-версии)
+            "https://t.me/mtproxyz",
+            "https://t.me/ProxyMTProto",
+            "https://t.me/fastmtp",
+            # Другие источники
+            "https://raw.githubusercontent.com/Telegram-FOSS-Team/Telegram-FOSS/develop/telegram/src/main/res/values/mtproto_proxies.xml",
+        ]
+        
+        for source_url in proxy_sources:
+            try:
+                self._log(f"Поиск прокси в источнике: {source_url}")
+                
+                req = urllib.request.Request(
+                    source_url,
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    }
+                )
+                
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    content = response.read().decode('utf-8', errors='ignore')
+                    
+                    # Поиск паттернов прокси в контенте
+                    # Паттерн для t.me/proxy?server=...
+                    proxy_pattern = r'(?:t\.me/proxy|tg://proxy)[^\s"\'>]+'
+                    matches = re.findall(proxy_pattern, content)
+                    
+                    for match in matches:
+                        proxy = self._parse_proxy_from_url(match)
+                        if proxy and proxy not in found_proxies:
+                            found_proxies.append(proxy)
+                            self._log(f"Найден прокси: {proxy}")
+                    
+                    # Паттерн для простых host:port/secret
+                    simple_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}:\d{2,5}/[a-fA-F0-9]{32,}\b'
+                    simple_matches = re.findall(simple_pattern, content)
+                    
+                    for match in simple_matches:
+                        proxy = self._parse_proxy_from_url(match)
+                        if proxy and proxy not in found_proxies:
+                            found_proxies.append(proxy)
+                            self._log(f"Найден простой прокси: {proxy}")
+                            
+            except Exception as e:
+                self._log(f"Ошибка при поиске в источнике {source_url}: {e}")
+        
+        return found_proxies
+    
+    def search_proxies_from_github(self) -> List[MTProtoProxy]:
+        """
+        Поиск MTProto прокси из публичных репозиториев GitHub.
+        Многие проекты хранят списки прокси в JSON или TXT файлах.
+        """
+        found_proxies = []
+        
+        # GitHub репозитории со списками прокси
+        github_urls = [
+            "https://raw.githubusercontent.com/zhumabekov/mtproto-proxy/master/proxies.txt",
+            "https://raw.githubusercontent.com/p-o-m-a-n-o-p-t/MTProxi/main/proxy.txt",
+        ]
+        
+        for url in github_urls:
+            try:
+                self._log(f"Загрузка списка прокси из GitHub: {url}")
+                
+                req = urllib.request.Request(
+                    url,
+                    headers={'User-Agent': 'Mozilla/5.0'}
+                )
+                
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    content = response.read().decode('utf-8', errors='ignore')
+                    
+                    # Каждая строка может содержать прокси
+                    for line in content.split('\n'):
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        
+                        proxy = self._parse_proxy_from_url(line)
+                        if proxy and proxy not in found_proxies:
+                            found_proxies.append(proxy)
+                            
+            except Exception as e:
+                self._log(f"Ошибка загрузки из GitHub {url}: {e}")
+        
+        return found_proxies
+    
+    def auto_search_proxies(self, max_proxies: int = 50) -> List[MTProtoProxy]:
+        """
+        Автоматический поиск новых прокси из всех доступных источников.
+        Объединяет результаты из разных источников и возвращает уникальные прокси.
+        """
+        self._log("Запуск автоматического поиска прокси...")
+        
+        all_found = []
+        
+        # Поиск из Telegram каналов
+        telegram_proxies = self.search_proxies_from_telegram_channels()
+        all_found.extend(telegram_proxies)
+        self._log(f"Найдено прокси из Telegram: {len(telegram_proxies)}")
+        
+        # Поиск из GitHub
+        github_proxies = self.search_proxies_from_github()
+        all_found.extend(github_proxies)
+        self._log(f"Найдено прокси из GitHub: {len(github_proxies)}")
+        
+        # Удаляем дубликаты
+        unique_proxies = list({(p.host, p.port): p for p in all_found}.values())
+        
+        # Ограничиваем количество
+        if len(unique_proxies) > max_proxies:
+            unique_proxies = unique_proxies[:max_proxies]
+        
+        self._log(f"Всего найдено уникальных прокси: {len(unique_proxies)}")
+        
+        return unique_proxies
+    
+    def update_proxy_list(self, new_proxies: List[MTProtoProxy]):
+        """
+        Обновление списка прокси новыми найденными прокси.
+        Добавляет только уникальные прокси, которых ещё нет в списке.
+        """
+        added_count = 0
+        
+        with self._lock:
+            existing = {(p.host, p.port): p for p in self.config.proxy_list + self.PUBLIC_PROXIES}
+            
+            for proxy in new_proxies:
+                key = (proxy.host, proxy.port)
+                if key not in existing:
+                    self.config.proxy_list.append(proxy)
+                    existing[key] = proxy
+                    added_count += 1
+                    self._log(f"Добавлен новый прокси: {proxy}")
+        
+        self._log(f"Обновлено списка прокси: добавлено {added_count} новых")
+        return added_count
     
     def add_proxy(self, host: str, port: int, secret: str):
         """Добавление прокси в список"""
