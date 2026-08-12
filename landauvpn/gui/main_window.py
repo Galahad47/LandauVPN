@@ -661,6 +661,7 @@ class LandauVPNGUI(ctk.CTk):
         self.mtproto_stop_btn.pack(side="left", padx=10)
         
         ctk.CTkButton(mt_btn_frame, text="🔄 Тест прокси", command=self.test_mtproto).pack(side="left", padx=10)
+        ctk.CTkButton(mt_btn_frame, text="🔍 Поиск прокси", command=self.search_mtproto_proxies).pack(side="left", padx=10)
 
     def _on_proxy_mode_change(self, value):
         self.log(f"[Proxy] Режим изменён на: {value}")
@@ -778,6 +779,36 @@ class LandauVPNGUI(ctk.CTk):
                     self._queue_proxy_status("● Нет доступных прокси", "red")
             except Exception as e:
                 self._queue_log(f"[MTProto] Ошибка теста: {e}")
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def search_mtproto_proxies(self):
+        """Автоматический поиск новых MTProto прокси"""
+        def worker():
+            try:
+                self._queue_log("[MTProto] Запуск автоматического поиска прокси...")
+                self._queue_proxy_status("● Поиск прокси...", "orange")
+                
+                # Выполняем поиск
+                new_proxies = self.mtproto.auto_search_proxies(max_proxies=50)
+                
+                if new_proxies:
+                    # Обновляем список прокси
+                    added = self.mtproto.update_proxy_list(new_proxies)
+                    self._queue_log(f"[MTProto] Найдено {len(new_proxies)} прокси, добавлено {added} новых")
+                    self._queue_proxy_status(f"● Найдено {len(new_proxies)} прокси", "lime")
+                    
+                    # После поиска выполняем проверку найденных прокси
+                    self._queue_log("[MTProto] Проверка найденных прокси...")
+                    working = self.mtproto.get_working_proxies()
+                    self._queue_log(f"[MTProto] Рабочих прокси: {len(working)}")
+                else:
+                    self._queue_log("[MTProto] Новые прокси не найдены")
+                    self._queue_proxy_status("● Прокси не найдены", "gray")
+                    
+            except Exception as e:
+                self._queue_log(f"[MTProto] Ошибка поиска: {e}")
+                self._queue_proxy_status("● Ошибка поиска", "red")
 
         threading.Thread(target=worker, daemon=True).start()
 
