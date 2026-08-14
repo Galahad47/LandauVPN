@@ -5,50 +5,23 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+
+# Environment
+.env
+.env.local
+*.env.*
+
 # Dependencies
 .venv/
 venv/
-env/
-pip-log.txt
-pip-delete-this-directory.txt
+node_modules/
 
-# Build/dist
-build/
+# Build artifacts
 dist/
-*.egg
-*.egg-info/
-*.so
-
-# Logs
-*.log
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Testing
-.coverage
-htmlcov/
-.coverage.*
-.nyc_output
-istanbul/
-.mypy_cache/
-.pytest_cache/
-.tox/
-
-# Environment variables
-.env
-.env.local
-*.env
+build/
+target/
 ```
