@@ -1,8 +1,3 @@
-"""
-LandauVPN - GUI Module
-Графический интерфейс приложения
-"""
-
 import queue
 import threading
 import time
@@ -14,12 +9,12 @@ from typing import List, Optional, Tuple
 
 import customtkinter as ctk
 
-from ..core.models import VPNProfile
-from ..core.vpn_controller import VPNController
-from ..proxy.controller import ProxyController, ProxyConfig, create_default_hostlists as create_proxy_hostlists
-from ..dpi.bypasser import DPIBypasser, DPIConfig, get_dpi_bypasser, create_default_hostlists as create_dpi_hostlists
-from ..mtproto.controller import MTProtoController, MTProtoConfig, get_mtproto_controller
-from ..utils.config import (
+from core.models import VPNProfile
+from core.vpn_controller import VPNController
+from proxy.controller import ProxyController, ProxyConfig, create_default_hostlists as create_proxy_hostlists
+from dpi.bypasser import DPIBypasser, DPIConfig, get_dpi_bypasser, create_default_hostlists as create_dpi_hostlists
+from mtproto.controller import MTProtoController, MTProtoConfig, get_mtproto_controller
+from utils.config import (
     load_admin_auth, save_admin_auth, hash_password, 
     load_profiles, save_profiles, load_free_profiles_from_json, 
     save_free_profiles_json, fetch_vpngate_profiles,

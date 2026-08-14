@@ -1,8 +1,3 @@
-"""
-LandauVPN - Configuration Module
-Настройки и пути приложения
-"""
-
 import base64
 import csv
 import hashlib
@@ -15,7 +10,6 @@ from pathlib import Path
 from typing import List, Tuple
 from urllib.parse import urlparse
 
-# Константы
 APP_NAME = "LandauVPN"
 REQUEST_TIMEOUT = 20
 FREE_VPN_LIMIT = 50
@@ -24,7 +18,7 @@ DEFAULT_ADMIN_PASSWORD = ""
 
 
 def project_dir() -> Path:
-    """Директория, где лежит скрипт или .exe (поддержка PyInstaller)."""
+    """Возвращает директорию проекта"""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     if "__file__" in globals():
@@ -38,7 +32,6 @@ VPN_DOWNLOAD_DIR = CONFIG_DIR / "profiles"
 AUTH_FILE = CONFIG_DIR / "auth.json"
 VPN_PROFILES_FILE = CONFIG_DIR / "vpn_profiles.json"
 
-# Поиск vpn_servers.json
 FREE_VPN_JSON_CANDIDATES = [
     BASE_DIR / "vpn_servers.json",
     Path.cwd() / "vpn_servers.json",
@@ -51,19 +44,18 @@ FREE_VPN_JSON_FILE = next(
 
 
 def ensure_config_dirs():
-    """Создание необходимых директорий"""
+    """Создаёт директории конфигурации"""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     VPN_DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ================== АВТОРИЗАЦИЯ ==================
 def hash_password(password: str) -> str:
-    """Хеширование пароля"""
+    """Хеширует пароль через SHA256"""
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def save_admin_auth(username: str, password: str) -> None:
-    """Сохранение учётных данных администратора"""
+    """Сохраняет учётные данные администратора"""
     payload = {
         "admin_username": username,
         "admin_password_hash": hash_password(password),
@@ -77,7 +69,7 @@ def save_admin_auth(username: str, password: str) -> None:
 
 
 def load_admin_auth() -> Tuple[str, str]:
-    """Загрузка учётных данных администратора"""
+    """Загружает учётные данные администратора"""
     if not AUTH_FILE.exists():
         save_admin_auth(DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD)
         return DEFAULT_ADMIN_USERNAME, hash_password(DEFAULT_ADMIN_PASSWORD)
@@ -93,9 +85,8 @@ def load_admin_auth() -> Tuple[str, str]:
         return DEFAULT_ADMIN_USERNAME, hash_password(DEFAULT_ADMIN_PASSWORD)
 
 
-# ================== ПРОФИЛИ VPN ==================
 def load_profiles(path: Path = VPN_PROFILES_FILE) -> List["VPNProfile"]:
-    """Загрузка профилей VPN из JSON файла"""
+    """Загружает профили VPN из JSON файла"""
     from ..core.models import VPNProfile
     if not path.exists():
         return []
@@ -110,15 +101,14 @@ def load_profiles(path: Path = VPN_PROFILES_FILE) -> List["VPNProfile"]:
 
 
 def save_profiles(profiles: List["VPNProfile"], path: Path = VPN_PROFILES_FILE) -> None:
-    """Сохранение профилей VPN в JSON файл"""
+    """Сохраняет профили VPN в JSON файл"""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump([asdict(p) for p in profiles], f, ensure_ascii=False, indent=2)
 
 
-# ================== VPNGATE ФУНКЦИИ ==================
 def _to_int(x, default: int = 0) -> int:
-    """Преобразование значения в int"""
+    """Преобразует значение в int"""
     try:
         return int(float(str(x).strip()))
     except Exception:
@@ -126,12 +116,12 @@ def _to_int(x, default: int = 0) -> int:
 
 
 def _score_tuple(item: dict) -> Tuple[int, int, int]:
-    """Ключ сортировки для серверов VPNGate"""
+    """Возвращает ключ сортировки для серверов VPNGate"""
     return (_to_int(item.get("score")), -_to_int(item.get("ping"), 9999), _to_int(item.get("speed")))
 
 
 def _parse_vpngate_csv_lines(text: str) -> List[dict]:
-    """Парсинг CSV ответа от VPNGate"""
+    """Парсит CSV ответ от VPNGate"""
     lines = [ln for ln in text.splitlines() if ln.strip() and not ln.startswith("*")]
     rows: List[dict] = []
     for line in lines:
@@ -154,7 +144,7 @@ def _parse_vpngate_csv_lines(text: str) -> List[dict]:
 
 
 def fetch_vpngate_profiles(limit: int = FREE_VPN_LIMIT) -> List["VPNProfile"]:
-    """Получение профилей VPNGate"""
+    """Получает профили VPNGate"""
     from ..core.models import VPNProfile
     import requests
     r = requests.get("https://www.vpngate.net/api/iphone/", timeout=REQUEST_TIMEOUT)
@@ -177,14 +167,13 @@ def fetch_vpngate_profiles(limit: int = FREE_VPN_LIMIT) -> List["VPNProfile"]:
 
 
 def load_free_profiles_from_json() -> List["VPNProfile"]:
-    """Загрузка бесплатных профилей из JSON"""
+    """Загружает бесплатные профили из JSON"""
     from ..core.models import VPNProfile
     if not FREE_VPN_JSON_FILE.exists():
         return []
     try:
         with open(FREE_VPN_JSON_FILE, "r", encoding="utf-8") as f:
             payload = json.load(f)
-        # Поддержка обоих форматов: список или dict с ключом "profiles"
         if isinstance(payload, list):
             rows = payload
         elif isinstance(payload, dict):
@@ -197,7 +186,7 @@ def load_free_profiles_from_json() -> List["VPNProfile"]:
 
 
 def save_free_profiles_json(profiles: List["VPNProfile"]) -> None:
-    """Сохранение бесплатных профилей в JSON"""
+    """Сохраняет бесплатные профили в JSON"""
     payload = {
         "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "source": "VPNGate public relay server list",
