@@ -1,9 +1,3 @@
-"""
-LandauVPN - Proxy Module (zapret-discord-youtube style)
-Постоянное проксирование для обхода блокировок (Telegram, Discord, YouTube)
-Использует различные методы обхода DPI
-"""
-
 import os
 import platform
 import subprocess
@@ -13,7 +7,7 @@ from pathlib import Path
 from typing import Optional, List, Callable
 from dataclasses import dataclass
 
-from ..utils.config import CONFIG_DIR
+from utils.config import CONFIG_DIR
 
 
 @dataclass

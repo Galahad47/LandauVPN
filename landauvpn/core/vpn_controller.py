@@ -1,8 +1,3 @@
-"""
-LandauVPN - VPN Controller Module
-Управление подключением и отключением VPN
-"""
-
 import os
 import platform
 import subprocess
@@ -10,7 +5,7 @@ from pathlib import Path
 from typing import Optional, List
 
 from .models import VPNProfile, is_url, is_vpngate_ref, parse_vpngate_ref, safe_filename, _parse_vpngate_csv_lines
-from ..utils.config import VPN_DOWNLOAD_DIR, REQUEST_TIMEOUT
+from utils.config import VPN_DOWNLOAD_DIR, REQUEST_TIMEOUT
 
 import requests
 import base64
